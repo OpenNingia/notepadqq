@@ -24,6 +24,8 @@ CONFIG(release, debug|release) {
 }
 
 win32 {
+	DEPENDPATH   += ../../magic/lib 
+	INCLUDEPATH  += ../../magic/include
     DEFINES += QSCINTILLA_DLL
     LIBS += User32.lib
 }

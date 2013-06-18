@@ -228,9 +228,15 @@ MainWindow* MainWindow::instance()
 QFont *MainWindow::systemMonospace()
 {
     if ( system_monospace == NULL ) {
-        ShrPtrWordsStyle global_overrides =
-            getLexerFactory()->getGlobalStyler()->words_stylers_by_name.value(stylename::GLOBAL_OVERRIDE);
-        system_monospace = new QFont( global_overrides->font_name, global_overrides->font_size );
+        ShrPtrStylerDefinition global = getLexerFactory()->getGlobalStyler();
+        if ( !global.isNull() ) {
+            ShrPtrWordsStyle global_overrides = global->words_stylers_by_name.value(stylename::GLOBAL_OVERRIDE);
+            if ( !global_overrides.isNull() ) {
+                system_monospace = new QFont( global_overrides->font_name, global_overrides->font_size );
+            }
+        }
+        if ( system_monospace == NULL )
+            system_monospace = new QFont();
     }
     return system_monospace;
 }
@@ -242,7 +248,8 @@ void MainWindow::processCommandLineArgs(QStringList arguments, bool fromExternal
     if(arguments.count() <= 1)
     {
         QTabWidgetqq *focusedTabWidget = container->focusQTabWidgetqq();
-        focusedTabWidget->addNewDocument();
+        if ( focusedTabWidget )
+            focusedTabWidget->addNewDocument();
         activateWindow = true;
     }
     else

@@ -67,8 +67,9 @@ int QTabWidgetqq::addEditorTab(bool setFocus, QString title)
     QWidget *widget = new QWidget(this);
     widget->setObjectName("singleTabWidget");
 
-    QVBoxLayout *layout = new QVBoxLayout;
+    QVBoxLayout *layout = new QVBoxLayout(widget);
     layout->setContentsMargins(0, 0, 0, 0);
+
     // Create textbox
     QsciScintillaqq* sci = new QsciScintillaqq(widget);
     sci->setObjectName("editorWidget");
@@ -84,7 +85,6 @@ int QTabWidgetqq::addEditorTab(bool setFocus, QString title)
     */
 
     layout->addWidget(sci);
-    widget->setLayout(layout);
     //this->setDocumentMode(true);
 
 
@@ -96,7 +96,6 @@ int QTabWidgetqq::addEditorTab(bool setFocus, QString title)
         on_actionShow_All_Characters_triggered();
     }
     */
-
     // Add the tab as last thing so we can use QSciScintillaqqAt method on currentTabChanged signal
     int index = this->addTab(widget, title);
     if(setFocus) {

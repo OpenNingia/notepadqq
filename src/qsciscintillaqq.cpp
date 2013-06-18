@@ -250,34 +250,36 @@ void QsciScintillaqq::initialize()
 
     // GLOBALS
     ShrPtrStylerDefinition glob_style = MainWindow::instance()->getLexerFactory()->getGlobalStyler();
-    ShrPtrWordsStyle       def_style  = glob_style->words_stylers_by_name.value(stylename::DEFAULT);
-    this->setColor(def_style->fg_color);
-    this->setPaper(def_style->bg_color);
+    if ( !glob_style.isNull() ) {
+        ShrPtrWordsStyle       def_style  = glob_style->words_stylers_by_name.value(stylename::DEFAULT);
+        this->setColor(def_style->fg_color);
+        this->setPaper(def_style->bg_color);
 
-    this->setBraceMatching(QsciScintillaqq::SloppyBraceMatch);
-    this->setCaretLineVisible(true);
+        this->setBraceMatching(QsciScintillaqq::SloppyBraceMatch);
+        this->setCaretLineVisible(true);
 
-    ShrPtrWordsStyle caret_style       = glob_style->words_stylers_by_name.value(stylename::CARET);
-    ShrPtrWordsStyle indent_style      = glob_style->words_stylers_by_name.value(stylename::INDENT_GUIDELINE);
-    ShrPtrWordsStyle select_style      = glob_style->words_stylers_by_name.value(stylename::SELECTED_TEXT);
-    ShrPtrWordsStyle fold_margin_style = glob_style->words_stylers_by_name.value(stylename::FOLD_MARGIN);
-    ShrPtrWordsStyle margins_style     = glob_style->words_stylers_by_name.value(stylename::LINE_NUMBER_MARGIN);
+        ShrPtrWordsStyle caret_style       = glob_style->words_stylers_by_name.value(stylename::CARET);
+        ShrPtrWordsStyle indent_style      = glob_style->words_stylers_by_name.value(stylename::INDENT_GUIDELINE);
+        ShrPtrWordsStyle select_style      = glob_style->words_stylers_by_name.value(stylename::SELECTED_TEXT);
+        ShrPtrWordsStyle fold_margin_style = glob_style->words_stylers_by_name.value(stylename::FOLD_MARGIN);
+        ShrPtrWordsStyle margins_style     = glob_style->words_stylers_by_name.value(stylename::LINE_NUMBER_MARGIN);
 
-    this->setSelectionBackgroundColor(select_style->bg_color);
-    this->setSelectionForegroundColor(select_style->fg_color);
+        this->setSelectionBackgroundColor(select_style->bg_color);
+        this->setSelectionForegroundColor(select_style->fg_color);
 
-    this->setFoldMarginColors(fold_margin_style->fg_color, fold_margin_style->bg_color);
-    this->setMarginsBackgroundColor(margins_style->bg_color);
-    this->setMarginsForegroundColor(margins_style->fg_color);
+        this->setFoldMarginColors(fold_margin_style->fg_color, fold_margin_style->bg_color);
+        this->setMarginsBackgroundColor(margins_style->bg_color);
+        this->setMarginsForegroundColor(margins_style->fg_color);
 
-    this->setCaretForegroundColor(caret_style->fg_color);
-    this->setCaretLineBackgroundColor(indent_style->fg_color);
+        this->setCaretForegroundColor(caret_style->fg_color);
+        this->setCaretLineBackgroundColor(indent_style->fg_color);
 
-    this->setIndentationGuidesForegroundColor(indent_style->fg_color);
-    this->SendScintilla(QsciScintilla::SCI_INDICSETSTYLE, SELECTOR_DefaultSelectionHighlight, QsciScintilla::INDIC_ROUNDBOX);
-    this->SendScintilla(QsciScintilla::SCI_INDICSETFORE, SELECTOR_DefaultSelectionHighlight, indent_style->fg_color.value());
-    this->SendScintilla(QsciScintilla::SCI_INDICSETALPHA, SELECTOR_DefaultSelectionHighlight, 100);
-    this->SendScintilla(QsciScintilla::SCI_INDICSETUNDER, SELECTOR_DefaultSelectionHighlight, true);
+        this->setIndentationGuidesForegroundColor(indent_style->fg_color);
+        this->SendScintilla(QsciScintilla::SCI_INDICSETSTYLE, SELECTOR_DefaultSelectionHighlight, QsciScintilla::INDIC_ROUNDBOX);
+        this->SendScintilla(QsciScintilla::SCI_INDICSETFORE, SELECTOR_DefaultSelectionHighlight, indent_style->fg_color.value());
+        this->SendScintilla(QsciScintilla::SCI_INDICSETALPHA, SELECTOR_DefaultSelectionHighlight, 100);
+        this->SendScintilla(QsciScintilla::SCI_INDICSETUNDER, SELECTOR_DefaultSelectionHighlight, true);
+    }
 }
 
 int QsciScintillaqq::getTabIndex()
