@@ -144,7 +144,7 @@ bool LexerFactory::parseLanguageDefinitions()
             lang->keywords_by_class.insert(kw_class->type, kw_class);
         }
         node = node.nextSiblingElement("Language");
-        languages.append        (lang);
+        _languages.append        (lang);
         languages_by_name.insert(lang->name, lang);
 
         foreach(QString ext, lang->file_extensions) {
@@ -152,6 +152,16 @@ bool LexerFactory::parseLanguageDefinitions()
         }
     }
     return true;
+}
+
+
+QHash<QString,QString> LexerFactory::languages()
+{
+    QHash<QString,QString> list;
+    foreach(ShrPtrStylerDefinition lang, stylers) {
+        list[lang->desc] = lang->name;
+    }
+    return list;
 }
 
 bool LexerFactory::parseColorSchemeDefinitions()

@@ -36,24 +36,25 @@
 #include <QApplication>
 #include <QClipboard>
 #include <QChar>
-#include <magic.h>
 
 #include "userlexer.h"
 
 QsciScintillaqq::QsciScintillaqq(QWidget *parent) :
     QsciScintilla(parent)
 {
-    encoding = "UTF-8";
-    BOM = false;
-    this->setFileName("");
+    _encoding   = "UTF-8";
+    _BOM        = false;
+    _forcedLanguage = "";
+    _fileName   = "";
+
     connect(this, SIGNAL(SCN_UPDATEUI(int)), this, SIGNAL(updateUI()));
     connect(this, SIGNAL(linesChanged()), this, SLOT(updateLineMargin()) );
+
     this->initialize();
 }
 
 QsciScintillaqq::~QsciScintillaqq()
 {
-    //delete fswatch;
 }
 
 QString QsciScintillaqq::fileName()
@@ -66,11 +67,31 @@ void QsciScintillaqq::setFileName(QString filename)
     _fileName = filename;
 }
 
+QString QsciScintillaqq::encoding()
+{
+    return _encoding;
+}
+
+void QsciScintillaqq::setEncoding(QString enc)
+{
+    _encoding = enc;
+}
+
+bool QsciScintillaqq::BOM()
+{
+    return _BOM;
+}
+
+void QsciScintillaqq::setBOM(bool yes)
+{
+    _BOM = yes;
+}
+
 QsciScintilla::EolMode QsciScintillaqq::guessEolMode()
 {
     int   _docLength = this->length();
     char *_docBuffer = (char*)this->SendScintilla(QsciScintilla::SCI_GETCHARACTERPOINTER);
-    QTextCodec *codec = QTextCodec::codecForName(this->encoding.toUtf8());
+    QTextCodec *codec = QTextCodec::codecForName(this->encoding().toUtf8());
     QByteArray a = codec->fromUnicode(QString::fromUtf8(_docBuffer,_docLength));
 
     int _win = a.count("\r\n");
@@ -278,7 +299,7 @@ int QsciScintillaqq::getTabIndex()
     return tabwidget_cast->indexOf(widget);
 }
 
-QTabWidgetqq *QsciScintillaqq::getTabWidget()
+QTabWidgetqq *QsciScintillaqq::tabWidget()
 {
     QWidget *tabwidget = this->parentWidget();
     while(tabwidget->objectName() != "tabWidget")
@@ -313,15 +334,30 @@ void QsciScintillaqq::forceUIUpdate()
 
 void QsciScintillaqq::autoSyntaxHighlight()
 {
-    QFileInfo info(fileName());
-
     // DELETE THE OLD LEXER
     if ( lexer() ) lexer()->deleteLater();
+    QsciLexer* lex;
 
-    QsciLexer* lex = MainWindow::instance()->getLexerFactory()->createLexer(info, this);
+    if(_forcedLanguage.isEmpty()) {
+        QFileInfo info(fileName());
+        lex = MainWindow::instance()->getLexerFactory()->createLexer( info, this);
+    }else {
+        lex = MainWindow::instance()->getLexerFactory()->createLexer( _forcedLanguage, this);
+    }
     if ( lex ) {
         setLexer(lex);
     }
+}
+
+QString QsciScintillaqq::forcedLanguage()
+{
+    return _forcedLanguage;
+}
+
+void QsciScintillaqq::setForcedLanguage(QString language)
+{
+    _forcedLanguage = language.toLower();
+    autoSyntaxHighlight();
 }
 
 //Keeps the line margin readable at all times
