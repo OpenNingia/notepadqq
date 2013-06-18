@@ -83,10 +83,8 @@ public:
     void processCommandLineArgs(QStringList arguments, bool fromExternalMessage);
     int askIfWantToSave(QsciScintillaqq *sci, int reason);
     int save(QsciScintillaqq *sci);
-//    int writeDocument(QsciScintillaqq *sci, QString filename);
     QString getSaveDialogDefaultFileName(QsciScintillaqq *sci);
     int saveAs(QsciScintillaqq *sci,bool copy=false);
-//    void openDocuments(QStringList fileNames, QTabWidgetqq *tabWidget);
     QSettings* getSettings();
     int kindlyTabClose(QsciScintillaqq *sci);
     void connect_tabWidget(QTabWidgetqq *tabWidget);
@@ -125,6 +123,8 @@ private:
     void closeEvent(QCloseEvent *event);
 
     void updateTypingMode(bool yes);
+    void initLanguages();
+
 
 private slots:
     void _on_text_changed();
@@ -138,6 +138,8 @@ private slots:
     void _apply_wide_settings_to_tab(int tab);
     void _on_editor_cursor_position_change(int line, int index);
     void _on_editor_keyrelease(QKeyEvent* e);
+    void setLanguage();
+
 
     void on_action_New_triggered();
     void on_actionSave_as_triggered();
@@ -179,10 +181,16 @@ private slots:
     void on_actionReload_from_Disk_triggered();
     void on_actionUPPERCASE_triggered();
     void on_actionLowercase_triggered();
+    void on_actionShow_End_of_Line_triggered();
+    void on_actionShow_White_Space_and_TAB_triggered();
+    void on_actionShow_Indent_Guide_triggered();
+    void on_actionShow_Wrap_Symbol_triggered();
 
 public slots:
     void on_actionZoom_In_triggered();
     void on_actionZoom_Out_triggered();
+
 };
+
 
 #endif // MAINWINDOW_H;
