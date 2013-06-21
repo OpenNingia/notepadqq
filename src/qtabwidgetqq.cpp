@@ -78,22 +78,8 @@ int QTabWidgetqq::addEditorTab(bool setFocus, QString title)
     connect(sci, SIGNAL(modificationChanged(bool)), this, SLOT(on_modification_changed(bool)));
 
     layout->addWidget(sci);
-<<<<<<< HEAD
-    //this->setDocumentMode(true);
-
-
-    /* TODO
-    bool _showallchars = ui->actionShow_All_Characters->isChecked();
-    updateScintillaPropertiesForAllTabs();
-    if(_showallchars) {
-        ui->actionShow_All_Characters->setChecked(true);
-        on_actionShow_All_Characters_triggered();
-    }
-    */
-=======
     widget->setLayout(layout);
 
->>>>>>> ee0dcc490df12d306adf62e32be1ad39a39d8906
     // Add the tab as last thing so we can use QSciScintillaqqAt method on currentTabChanged signal
     int index = this->addTab(widget, title);
     if(setFocus)
