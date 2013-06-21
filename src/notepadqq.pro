@@ -16,11 +16,13 @@ UI_DIR = ../build/build_data
 MOC_DIR = ../build/build_data
 OBJECTS_DIR = ../build/build_data
 
-CONFIG(debug, debug|release) {
-    DESTDIR = ../build/debug
-}
-CONFIG(release, debug|release) {
-    DESTDIR = ../build/release
+isEmpty(DESTDIR) {
+    CONFIG(debug, debug|release) {
+        DESTDIR = ../build/debug
+    }
+    CONFIG(release, debug|release) {
+        DESTDIR = ../build/release
+    }
 }
 
 win32 {
@@ -55,7 +57,6 @@ HEADERS  += mainwindow.h \
     qtabwidgetscontainer.h \
     frmsrchreplace.h \
     searchengine.h \
-    searchengine.h \
     docengine.h \
     appwidesettings.h \
     lexerfactory.h
@@ -83,19 +84,19 @@ TRANSLATIONS += L10n/notepadqq_en.ts \
 unix {
     # MAKE INSTALL
     INSTALLS += target \
-        vfiles
-        #desktop \
-        #icon64
+        vfiles \
+        data
 
-    target.path = /usr/bin/
+    isEmpty(PREFIX) {
+        PREFIX = /usr/local
+    }
+
+    target.path = $$INSTALL_ROOT$$PREFIX/bin/
     target.files += $$DESTDIR/$$TARGET
-
-    vfiles.path = /
-    vfiles.files += sys_files/*
-    #desktop.path = /usr/share/applications/
-    #desktop.files += $$SYS_FILES/usr/share/applications/notepadqq.desktop
-    #icon64.path = $$DATADIR/icons/hicolor/64x64/apps
-    #icon64.files += fsudoku.png
+    vfiles.path = $$INSTALL_ROOT$$PREFIX/
+    vfiles.files += sys_files/usr/*
+    data.path  = $$INSTALL_ROOT$$PREFIX/share/notepadqq
+    data.files = syntax/*.xml
 }
 
 unix|win32: LIBS += -lmagic
