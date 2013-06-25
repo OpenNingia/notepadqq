@@ -35,6 +35,69 @@
 // package libgtk3.0-0
 // required for build: libgtk3.0-dev
 
+#ifdef QDEBUG_ON_FILE
+
+#define KBYTE_ 1024
+#define MBYTE_ 1024 * KBYTE_
+#define MAX_LOG_SIZE 5 * MBYTE_
+
+QFileInfo rotate_log_file(const char* log_name)
+{
+    QString file_path = QString("%1.log").arg(log_name);
+    QFileInfo log_file(file_path);
+    if ( log_file.exists() )
+    {
+        // CHECK SIZE
+        if ( log_file.size() > MAX_LOG_SIZE ) {
+            // ROTATE LOG
+            QString ts = QDateTime::currentDateTime().toString("ddMMyyhhmmss");
+            QFile lf(file_path);
+            lf.rename(QString("%1_%2").arg(log_name).arg(ts));
+        }
+    }
+
+    return log_file;
+}
+
+void messageOutput(QtMsgType type, const char *msg)
+{
+    static QMap<QtMsgType, QString> categs;
+
+    // FILL CATEGS IF EMPTY
+    if ( categs.empty() ) {
+        categs[QtDebugMsg]      = "DEBUG   ";
+        categs[QtWarningMsg]    = "WARNING ";
+        categs[QtCriticalMsg]   = "CRITICAL";
+        categs[QtFatalMsg]      = "FATAL   ";
+    }
+
+    // LOG FILE
+    QFileInfo log_info = rotate_log_file("nqq");
+    QFile log_file(log_info.filePath());
+    if ( log_file.exists() )
+        log_file.open(QFile::WriteOnly | QFile::Text | QFile::Append);
+    else
+        log_file.open(QFile::WriteOnly | QFile::Text | QFile::Truncate);
+
+    QString ts = QDateTime::currentDateTime().toString("dd/MM/yy hh:mm:ss.zzz");
+    QString log_msg;
+    log_msg = QString("%1 [%2] %3")
+              .arg(ts)
+              .arg(categs[type])
+              .arg(msg);
+
+    fprintf(stderr, qPrintable(log_msg));
+    fprintf(stderr, "\n");
+
+    if ( log_file.isOpen() && log_file.isWritable() ) {
+        log_file.write(qPrintable(log_msg));
+        log_file.write("\n");
+        log_file.close();
+    }
+}
+#endif
+
+
 void processOtherInstances();
 int numberOfFilesInArgs(QStringList arguments);
 void setupSystemIconTheme();
@@ -54,6 +117,10 @@ int main(int argc, char *argv[])
     }
 #endif
 
+#ifdef QDEBUG_ON_FILE
+    qInstallMsgHandler(messageOutput);
+#endif    
+    
     // Load current locale
     QTranslator qtTranslator;
     QTranslator appTranslator;

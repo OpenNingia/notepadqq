@@ -59,7 +59,8 @@ MainWindow::MainWindow(QWidget *parent) :
     ui->setupUi(this);
 
     system_monospace = NULL;
-    lexer_factory    = new LexerFactory();
+    lexer_factory    = new LexerFactory ();
+    plugin_manager   = new PluginManager();
 
     settings = new QSettings();
     // "container" is the object that contains all the TabWidgets.
@@ -145,6 +146,7 @@ MainWindow::~MainWindow()
     delete search_engine;
     delete document_engine;
     delete system_monospace;
+    delete plugin_manager;
     delete ui;
 }
 
@@ -186,6 +188,18 @@ void MainWindow::init()
             qApp->setFont( system_font );
         }
     }
+    
+    QStringList script_paths;
+    script_paths << generalFunctions::getUserFilePath("scripts");
+    plugin_manager->setScriptLoadPath(script_paths);
+       
+    // SETUP SCRIPT ENGINE
+    QScriptEngine & engine = plugin_manager->engine();
+    QScriptValue nqq       = engine.newQObject(this);
+    engine.globalObject().setProperty("nqq", nqq);
+    
+    // SCAN FOR PLUGINS/SCRIPTS
+    plugin_manager->scan();
 }
 
 MainWindow* MainWindow::instance()
@@ -1072,6 +1086,11 @@ void MainWindow::_apply_wide_settings_to_tab( int index )
     if ( !sci ) return;
     widesettings::apply_settings(sci);
     update_single_document_ui(sci);
+    
+    // UPDATE SCRIPT API
+    QScriptEngine & engine = plugin_manager->engine();
+    QScriptValue editor    = engine.newQObject(sci);
+    engine.globalObject().setProperty("editor", editor);    
 }
 
 void MainWindow::on_actionShow_All_Characters_triggered()
@@ -1152,4 +1171,16 @@ void MainWindow::on_actionShow_Wrap_Symbol_triggered()
     QsciScintillaqq *sci = focused_editor();
     if ( !sci || !widesettings::toggle_wrap_symbol(sci) ) return;
     update_single_document_ui(sci);
+}
+
+// SCRIPT API
+QScriptValue MainWindow::addPluginMenu(QString name)
+{
+    QScriptEngine & engine = plugin_manager->engine();
+    return engine.newQObject(ui->menuPlugins->addAction(name));
+}
+
+void MainWindow::pluginTrace(QString text)
+{
+    qDebug() << "[PLUGIN] " << text;
 }

@@ -6,7 +6,8 @@
 
 QT       += core gui \
             network \
-            xml
+            xml \
+			script
 
 TARGET = notepadqq
 TEMPLATE = app
@@ -28,8 +29,8 @@ isEmpty(DESTDIR) {
 win32 {
 	DEPENDPATH   += ../../magic/lib 
 	INCLUDEPATH  += ../../magic/include
-    DEFINES += QSCINTILLA_DLL
-    LIBS += User32.lib
+    DEFINES += QSCINTILLA_DLL QDEBUG_ON_FILE
+    LIBS += User32.lib	
 }
 
 
@@ -46,7 +47,8 @@ SOURCES += main.cpp\
     docengine.cpp \
     appwidesettings.cpp \
     lexerfactory.cpp \
-    frmpreferences.cpp
+    frmpreferences.cpp \
+	pluginmanager.cpp
 
 HEADERS  += mainwindow.h \
     qsciscintillaqq.h \
@@ -61,7 +63,8 @@ HEADERS  += mainwindow.h \
     docengine.h \
     appwidesettings.h \
     lexerfactory.h \
-    frmpreferences.h
+    frmpreferences.h \
+	pluginmanager.h
 
 FORMS    += mainwindow.ui \
     frmabout.ui \

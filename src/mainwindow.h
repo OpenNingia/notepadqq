@@ -31,6 +31,7 @@
 #include "searchengine.h"
 #include "docengine.h"
 #include "lexerfactory.h"
+#include "pluginmanager.h"
 #include <QSettings>
 #include <QLabel>
 #include <QSplitter>
@@ -109,8 +110,9 @@ public:
     QString       getSaveDialogDefaultFileName(QsciScintillaqq *sci);
     QSettings*    getSettings();
 
-    LexerFactory* getLexerFactory();
-    searchengine* getSearchEngine();
+    LexerFactory*  getLexerFactory ();
+    searchengine*  getSearchEngine ();
+    PluginManager* getPluginManager();
 
     //Singleton instance of main window class
     static MainWindow* instance();
@@ -119,6 +121,10 @@ public:
     QsciScintillaqq* focused_editor();
     QsciScintillaqq* editor_at_index(int i);
     QTabWidgetqq*    focused_tabWidget();
+    
+    // SCRIPT ACCESSIBLE API
+    Q_INVOKABLE QScriptValue addPluginMenu(QString name);
+    Q_INVOKABLE void         pluginTrace  (QString text);
 
 private:
     static MainWindow* wMain;
@@ -142,6 +148,7 @@ private:
     searchengine*      search_engine;
     docengine*         document_engine;
     LexerFactory*      lexer_factory;
+    PluginManager*     plugin_manager;
 
     void               closeEvent(QCloseEvent *event);
     void               initialize_languages();
