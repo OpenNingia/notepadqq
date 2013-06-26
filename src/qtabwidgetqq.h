@@ -40,6 +40,7 @@ public:
     int addEditorTab(bool setFocus, QString title);
     QsciScintillaqq *focusQSciScintillaqq();
     QsciScintillaqq *QSciScintillaqqAt(int index);
+    QsciScintillaqq *QSciScintillaqqAt(const QString & fileName);
     void setTabBarHidden(bool yes);
     void setTabBarVertical(bool yes);
     void setTabBarHighlight(bool yes);

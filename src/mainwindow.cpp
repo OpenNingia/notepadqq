@@ -188,18 +188,17 @@ void MainWindow::init()
             qApp->setFont( system_font );
         }
     }
-    
+
+    plugin_manager->init(this);
+
     QStringList script_paths;
     script_paths << generalFunctions::getUserFilePath("scripts");
     plugin_manager->setScriptLoadPath(script_paths);
-       
-    // SETUP SCRIPT ENGINE
-    QScriptEngine & engine = plugin_manager->engine();
-    QScriptValue nqq       = engine.newQObject(this);
-    engine.globalObject().setProperty("nqq", nqq);
-    
+
     // SCAN FOR PLUGINS/SCRIPTS
     plugin_manager->scan();
+
+    // TODO. SETUP SCRIPT ENGINE
 }
 
 MainWindow* MainWindow::instance()
@@ -1028,6 +1027,16 @@ LexerFactory* MainWindow::getLexerFactory()
     return lexer_factory;
 }
 
+PluginManager* MainWindow::getPluginManager ()
+{
+    return plugin_manager;
+}
+
+docengine* MainWindow::getDocumentEngine()
+{
+    return document_engine;
+}
+
 void MainWindow::on_actionWord_wrap_triggered()
 {
     // APPLY TO CURRENT TAB
@@ -1086,11 +1095,6 @@ void MainWindow::_apply_wide_settings_to_tab( int index )
     if ( !sci ) return;
     widesettings::apply_settings(sci);
     update_single_document_ui(sci);
-    
-    // UPDATE SCRIPT API
-    QScriptEngine & engine = plugin_manager->engine();
-    QScriptValue editor    = engine.newQObject(sci);
-    engine.globalObject().setProperty("editor", editor);    
 }
 
 void MainWindow::on_actionShow_All_Characters_triggered()
@@ -1174,13 +1178,9 @@ void MainWindow::on_actionShow_Wrap_Symbol_triggered()
 }
 
 // SCRIPT API
-QScriptValue MainWindow::addPluginMenu(QString name)
+QAction* MainWindow::addPluginMenuItem(qint64 pluginId, QString menuName, QString itemName)
 {
-    QScriptEngine & engine = plugin_manager->engine();
-    return engine.newQObject(ui->menuPlugins->addAction(name));
-}
-
-void MainWindow::pluginTrace(QString text)
-{
-    qDebug() << "[PLUGIN] " << text;
+    if ( !plugin_menu_map.contains(pluginId) )
+        plugin_menu_map.insert( pluginId, ui->menuPlugins->addMenu(menuName) );
+    return plugin_menu_map[pluginId]->addAction(itemName);
 }

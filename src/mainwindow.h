@@ -37,6 +37,7 @@
 #include <QSplitter>
 #include <QtNetwork/QLocalServer>
 #include <QActionGroup>
+#include <QHash>
 
 #define FILETYPES_FILE "filetypes.list"
 namespace Ui {
@@ -110,9 +111,10 @@ public:
     QString       getSaveDialogDefaultFileName(QsciScintillaqq *sci);
     QSettings*    getSettings();
 
-    LexerFactory*  getLexerFactory ();
-    searchengine*  getSearchEngine ();
-    PluginManager* getPluginManager();
+    LexerFactory*  getLexerFactory  ();
+    searchengine*  getSearchEngine  ();
+    PluginManager* getPluginManager ();
+    docengine*     getDocumentEngine();
 
     //Singleton instance of main window class
     static MainWindow* instance();
@@ -121,10 +123,9 @@ public:
     QsciScintillaqq* focused_editor();
     QsciScintillaqq* editor_at_index(int i);
     QTabWidgetqq*    focused_tabWidget();
-    
-    // SCRIPT ACCESSIBLE API
-    Q_INVOKABLE QScriptValue addPluginMenu(QString name);
-    Q_INVOKABLE void         pluginTrace  (QString text);
+
+    // PLUGIN HELPERS
+    QAction* addPluginMenuItem(qint64 pluginId, QString menuName, QString itemName);
 
 private:
     static MainWindow* wMain;
@@ -149,6 +150,8 @@ private:
     docengine*         document_engine;
     LexerFactory*      lexer_factory;
     PluginManager*     plugin_manager;
+
+    QHash<qint64, QMenu*> plugin_menu_map;
 
     void               closeEvent(QCloseEvent *event);
     void               initialize_languages();

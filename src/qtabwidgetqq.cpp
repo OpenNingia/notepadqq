@@ -102,6 +102,8 @@ QsciScintillaqq *QTabWidgetqq::focusQSciScintillaqq()
 
 QsciScintillaqq *QTabWidgetqq::QSciScintillaqqAt(int index)
 {
+    if ( index < 0 ) return focusQSciScintillaqq();
+
     QWidget *widget = this->widget(index);
 
     if(widget != 0) {
@@ -109,6 +111,16 @@ QsciScintillaqq *QTabWidgetqq::QSciScintillaqqAt(int index)
     } else {
         return 0;
     }
+}
+
+QsciScintillaqq *QTabWidgetqq::QSciScintillaqqAt(const QString & fileName)
+{
+    for ( int i = 0; i < count(); ++i ) {
+        QsciScintillaqq *q = QSciScintillaqqAt(i);
+        if ( !q ) return 0;
+        if ( q->fileName() == fileName ) return q;
+    }
+    return 0;
 }
 
 QTabWidgetsContainer *QTabWidgetqq::getTabWidgetsContainer()
