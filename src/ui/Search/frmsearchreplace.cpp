@@ -6,6 +6,7 @@
 #include <QSettings>
 #include <QFileDialog>
 #include <QThread>
+#include <QCompleter>
 
 frmSearchReplace::frmSearchReplace(TopEditorContainer *topEditorContainer, QWidget *parent) :
     QMainWindow(parent),
@@ -20,6 +21,9 @@ frmSearchReplace::frmSearchReplace(TopEditorContainer *topEditorContainer, QWidg
         parentWidget()->window()->frameGeometry().topLeft() +
         parentWidget()->window()->rect().center() -
         rect().center());
+
+    ui->cmbSearch->completer()->setCaseSensitivity(Qt::CaseSensitive);
+    ui->cmbReplace->completer()->setCaseSensitivity(Qt::CaseSensitive);
 
     QSettings s;
     ui->cmbSearch->addItems(s.value("Search/searchHistory", QStringList()).toStringList());
@@ -183,6 +187,7 @@ void frmSearchReplace::replace(QString string, QString replacement, SearchHelper
         data.append(regexModifiersFromSearchOptions(searchOptions));
         data.append(forward);
         data.append(replacement);
+				data.append(QString::number(static_cast<int>(searchMode)));
         editor->sendMessage("C_FUN_REPLACE", QVariant::fromValue(data));
     }
 }
@@ -194,6 +199,7 @@ int frmSearchReplace::replaceAll(QString string, QString replacement, SearchHelp
     data.append(rawSearch);
     data.append(regexModifiersFromSearchOptions(searchOptions));
     data.append(replacement);
+		data.append(QString::number(static_cast<int>(searchMode)));
     QVariant count = currentEditor()->sendMessageWithResult("C_FUN_REPLACE_ALL", QVariant::fromValue(data));
     return count.toInt();
 }

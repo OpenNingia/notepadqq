@@ -422,6 +422,16 @@ namespace EditorNS
         sendMessage("C_CMD_SET_LINE_WRAP", wrap);
     }
 
+    void Editor::setEOLVisible(const bool showeol)
+    {
+        sendMessage("C_CMD_SHOW_END_OF_LINE",showeol);
+    }
+
+    void Editor::setWhitespaceVisible(const bool showspace)
+    {
+        sendMessage("C_CMD_SHOW_WHITESPACE",showspace);
+    }
+
     QPair<int, int> Editor::cursorPosition()
     {
         QList<QVariant> cursor = sendMessageWithResult("C_FUN_GET_CURSOR").toList();
@@ -475,6 +485,14 @@ namespace EditorNS
     void Editor::setEndOfLineSequence(const QString &newLineSequence)
     {
         m_endOfLineSequence = newLineSequence;
+    }
+
+    void Editor::setFont(QString fontFamily, int fontSize)
+    {
+        QMap<QString, QVariant> tmap;
+        tmap.insert("family", fontFamily == nullptr ? "" : fontFamily);
+        tmap.insert("size", QString::number(fontSize));
+        sendMessage("C_CMD_SET_FONT", tmap);
     }
 
     QTextCodec *Editor::codec() const

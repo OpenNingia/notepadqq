@@ -15,7 +15,7 @@
   </property>
   <property name="windowIcon">
    <iconset resource="resources.qrc">
-    <normaloff>:/icons/default/scalable/notepadqq.svg</normaloff>:/icons/default/scalable/notepadqq.svg</iconset>
+    <normaloff>:/icons/notepadqq/scalable/notepadqq.svg</normaloff>:/icons/notepadqq/scalable/notepadqq.svg</iconset>
   </property>
   <property name="documentMode">
    <bool>true</bool>
@@ -116,6 +116,8 @@
      </property>
      <addaction name="actionDuplicate_Line"/>
      <addaction name="actionDelete_Line"/>
+     <addaction name="actionMove_Line_Up"/>
+     <addaction name="actionMove_Line_Down"/>
     </widget>
     <widget class="QMenu" name="menuBlank_Operations">
      <property name="title">
@@ -168,6 +170,7 @@
       <string>Show Symbol</string>
      </property>
      <addaction name="actionShow_Tabs"/>
+     <addaction name="actionShow_Spaces"/>
      <addaction name="actionShow_End_of_Line"/>
      <addaction name="actionShow_All_Characters"/>
      <addaction name="separator"/>
@@ -198,6 +201,8 @@
     <addaction name="actionWord_wrap"/>
     <addaction name="separator"/>
     <addaction name="actionText_Direction_RTL"/>
+    <addaction name="separator"/>
+    <addaction name="actionFull_Screen"/>
    </widget>
    <widget class="QMenu" name="menuEncoding">
     <property name="title">
@@ -237,20 +242,6 @@
     <addaction name="actionAbout_Qt"/>
     <addaction name="actionAbout_Notepadqq"/>
    </widget>
-   <widget class="QMenu" name="menuMacro">
-    <property name="title">
-     <string>Macro</string>
-    </property>
-    <addaction name="action_Start_Recording"/>
-    <addaction name="action_Stop_Recording"/>
-    <addaction name="action_Playback"/>
-    <addaction name="actionSave_Currently_Recorded_Macro"/>
-    <addaction name="actionRun_a_Macro_Multiple_Times"/>
-    <addaction name="separator"/>
-    <addaction name="actionTrim_Trailing_and_save"/>
-    <addaction name="separator"/>
-    <addaction name="actionModify_Shortcut_Delete_Macro"/>
-   </widget>
    <widget class="QMenu" name="menuRun">
     <property name="title">
      <string>Run</string>
@@ -288,7 +279,6 @@
    <addaction name="menuEncoding"/>
    <addaction name="menu_Language"/>
    <addaction name="menuSe_ttings"/>
-   <addaction name="menuMacro"/>
    <addaction name="menuRun"/>
    <addaction name="menuExtensions"/>
    <addaction name="menu_Window"/>
@@ -642,17 +632,17 @@
   </action>
   <action name="actionCurrent_Full_File_path_to_Clipboard">
    <property name="text">
-    <string>Current Full File Path to Clipboard</string>
+    <string>Copy Full Path to Clipboard</string>
    </property>
   </action>
   <action name="actionCurrent_Filename_to_Clipboard">
    <property name="text">
-    <string>Current Filename to Clipboard</string>
+    <string>Copy Filename to Clipboard</string>
    </property>
   </action>
   <action name="actionCurrent_Directory_Path_to_Clipboard">
    <property name="text">
-    <string>Current Directory Path to Clipboard</string>
+    <string>Copy Directory to Clipboard</string>
    </property>
   </action>
   <action name="actionZoom_In">
@@ -703,6 +693,9 @@
    <property name="text">
     <string>&amp;Start Recording</string>
    </property>
+   <property name="visible">
+    <bool>false</bool>
+   </property>
   </action>
   <action name="action_Stop_Recording">
    <property name="enabled">
@@ -710,6 +703,9 @@
    </property>
    <property name="text">
     <string>&amp;Stop Recording</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
    </property>
   </action>
   <action name="action_Playback">
@@ -719,6 +715,9 @@
    <property name="text">
     <string>&amp;Playback</string>
    </property>
+   <property name="visible">
+    <bool>false</bool>
+   </property>
   </action>
   <action name="actionSave_Currently_Recorded_Macro">
    <property name="enabled">
@@ -727,10 +726,16 @@
    <property name="text">
     <string>Save Currently Recorded Macro</string>
    </property>
+   <property name="visible">
+    <bool>false</bool>
+   </property>
   </action>
   <action name="actionRun_a_Macro_Multiple_Times">
    <property name="text">
     <string>Run a Macro Multiple Times...</string>
+   </property>
+   <property name="visible">
+    <bool>false</bool>
    </property>
   </action>
   <action name="actionTrim_Trailing_and_save">
@@ -960,6 +965,28 @@
     <string>Ctrl+D</string>
    </property>
   </action>
+  <action name="actionMove_Line_Up">
+   <property name="text">
+    <string>Move Line Up</string>
+   </property>
+   <property name="toolTip">
+    <string>Move the current line up</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+Up</string>
+   </property>
+  </action>
+  <action name="actionMove_Line_Down">
+   <property name="text">
+    <string>Move Line Down</string>
+   </property>
+   <property name="toolTip">
+    <string>Move the current line down</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+Shift+Down</string>
+   </property>
+  </action>
   <action name="actionTrim_Trailing_Space">
    <property name="text">
     <string>Trim Trailing Space</string>
@@ -1017,6 +1044,28 @@
   <action name="actionInstall_Extension">
    <property name="text">
     <string>Install Extension...</string>
+   </property>
+  </action>
+  <action name="actionFull_Screen">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Full Screen</string>
+   </property>
+   <property name="shortcut">
+    <string>F11</string>
+   </property>
+  </action>
+  <action name="actionShow_Spaces">
+   <property name="checkable">
+    <bool>true</bool>
+   </property>
+   <property name="text">
+    <string>Show Spaces</string>
+   </property>
+   <property name="toolTip">
+    <string>Show Spaces</string>
    </property>
   </action>
  </widget>

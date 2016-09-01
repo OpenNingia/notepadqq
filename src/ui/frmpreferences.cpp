@@ -4,7 +4,13 @@
 #include "include/EditorNS/editor.h"
 #include "include/mainwindow.h"
 #include "include/Extensions/extensionsloader.h"
+#include "include/notepadqq.h"
+#include "include/keygrabber.h"
 #include <QFileDialog>
+#include <QSortFilterProxyModel>
+#include <QInputDialog>
+#include <QTableWidgetItem>
+#include <QSharedPointer>
 
 frmPreferences::frmPreferences(TopEditorContainer *topEditorContainer, QWidget *parent) :
     QDialog(parent),
@@ -40,7 +46,9 @@ frmPreferences::frmPreferences(TopEditorContainer *topEditorContainer, QWidget *
     ui->chkWarnForDifferentIndentation->setChecked(s.value("warnForDifferentIndentation", true).toBool());
 
     loadLanguages(&s);
-    loadColorSchemes(&s);
+    loadAppearanceTab(&s);
+    loadTranslations(&s);
+    loadShortcuts(&s);
 
     ui->chkSearch_SearchAsIType->setChecked(s.value("Search/SearchAsIType", true).toBool());
 
@@ -53,6 +61,77 @@ frmPreferences::~frmPreferences()
     delete ui;
     delete m_langsTempSettings;
     delete m_commonLanguageProperties;
+    delete m_shortcuts;
+}
+
+void frmPreferences::resetShortcuts()
+{
+    MainWindow* mw = qobject_cast<MainWindow*>(parent());
+    int i = 0;
+    QMap<QString,QString>::iterator it;
+    for(it = m_shortcuts->begin();it != m_shortcuts->end();it++) {
+        kg->item(i,1)->setText(mw->getDefaultShortcut(m_shortcuts->key(kg->item(i,0)->text())));
+        i++;
+    }
+}
+
+void frmPreferences::loadShortcuts(QSettings* s)
+{
+    MainWindow* mw = qobject_cast<MainWindow*>(parent());
+    m_shortcuts = new QMap<QString,QString>;
+
+    foreach(QAction* a, mw->getActions())
+    {
+        if(a->objectName().isEmpty()) continue;
+        m_shortcuts->insert(a->objectName(), a->iconText());
+    }
+
+    kg = new KeyGrabber();
+
+    //Build the interface
+    QWidget *container = new QWidget();
+    QVBoxLayout *layout = new QVBoxLayout();
+    QPushButton *resetDefaults = new QPushButton("Restore Defaults");
+    QObject::connect(resetDefaults,SIGNAL(clicked()),this,SLOT(resetShortcuts()));
+    resetDefaults->setFixedWidth(128);
+    layout->addWidget(kg);
+    layout->addWidget(resetDefaults);
+    container->setLayout(layout);
+    ui->stackedWidget->insertWidget(4,container);
+
+    QMapIterator<QString,QString> it(*m_shortcuts);
+    s->beginGroup("Shortcuts");
+    while(it.hasNext()) {
+        it.next();
+        kg->insertRow(0);
+        kg->setItem(0,0,new QTableWidgetItem(it.value()));
+        kg->setItem(0,1,new QTableWidgetItem(s->value(it.key()).toString()));
+    }
+    s->endGroup();
+
+    kg->sortItems(0);
+    kg->selectRow(0);
+    kg->checkConflicts();
+}
+
+void frmPreferences::saveShortcuts(QSettings* s)
+{
+    MainWindow* mw = qobject_cast<MainWindow*>(parent());
+    int rows = kg->rowCount();
+    s->beginGroup("Shortcuts");
+    for(int i=0;i<rows;i++) {
+        s->setValue(m_shortcuts->key(kg->item(i,0)->text()),kg->item(i,1)->text());
+    }
+    s->endGroup();
+    mw->updateShortcuts();
+}
+
+void frmPreferences::updatePreviewEditorFont()
+{
+    QString font = ui->cmbFontFamilies->isEnabled() ? ui->cmbFontFamilies->currentFont().family() : "";
+    int size = ui->spnFontSize->isEnabled() ? ui->spnFontSize->value() : 0;
+
+    m_previewEditor->setFont(font, size);
 }
 
 void frmPreferences::on_treeWidget_currentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem * /*previous*/)
@@ -71,12 +150,17 @@ void frmPreferences::on_buttonBox_accepted()
     s.setValue("warnForDifferentIndentation", ui->chkWarnForDifferentIndentation->isChecked());
 
     saveLanguages(&s);
-    saveColorScheme(&s);
-
+    saveAppearanceTab(&s);
+    saveTranslation(&s);
+    saveShortcuts(&s);
     s.setValue("Search/SearchAsIType", ui->chkSearch_SearchAsIType->isChecked());
 
     s.setValue("Extensions/Runtime_Nodejs", ui->txtNodejs->text());
     s.setValue("Extensions/Runtime_Npm", ui->txtNpm->text());
+
+    const Editor::Theme& newTheme = Editor::themeFromName(ui->cmbColorScheme->currentData().toString());
+    const QString fontFamily = ui->cmbFontFamilies->isEnabled() ? ui->cmbFontFamilies->currentFont().family() : "";
+    const int fontSize = ui->spnFontSize->isEnabled() ? ui->spnFontSize->value() : 0;
 
     // Apply changes to currently opened editors
     for (MainWindow *w : MainWindow::instances()) {
@@ -84,23 +168,23 @@ void frmPreferences::on_buttonBox_accepted()
 
         w->topEditorContainer()->forEachEditor([&](const int, const int, EditorTabWidget *, Editor *editor) {
 
+            // Set new theme
+            editor->setTheme(newTheme);
+
+            // Set font override
+            editor->setFont(fontFamily, fontSize);
+
             // Reset language-dependent settings (e.g. tab settings)
             editor->setLanguage(editor->language());
-
-            // Set theme
-            QMap<QString, QVariant> theme_map = ui->cmbColorScheme->currentData().toMap();
-            Editor::Theme theme;
-            theme.name = theme_map.value("name").toString();
-            theme.path = theme_map.value("path").toString();
-            editor->setTheme(theme);
-
-            // Invalidate already initialized editors in the buffer
-            editor->invalidateEditorBuffer();
-            editor->addEditorToBuffer();
 
             return true;
         });
     }
+
+    // Invalidate already initialized editors in the buffer and add a single new
+    // Editor to the buffer so we won't have an empty queue.
+    Editor::invalidateEditorBuffer();
+    Editor::addEditorToBuffer(1);
 
     accept();
 }
@@ -142,23 +226,16 @@ void frmPreferences::loadLanguages(QSettings *s)
     ui->cmbLanguages->currentIndexChanged(0);
 }
 
-void frmPreferences::loadColorSchemes(QSettings *s)
+void frmPreferences::loadAppearanceTab(QSettings *s)
 {
     QList<Editor::Theme> themes = m_topEditorContainer->currentTabWidget()->currentEditor()->themes();
 
-    QMap<QString, QVariant> defaultTheme;
-    defaultTheme.insert("name", "default");
-    defaultTheme.insert("path", "");
-    ui->cmbColorScheme->addItem("Default", defaultTheme);
-    ui->cmbColorScheme->setCurrentIndex(0);
+    ui->cmbColorScheme->addItem("Default", "default");
 
     QString themeSetting = s->value("Appearance/ColorScheme", "").toString();
 
     for (Editor::Theme theme : themes) {
-        QMap<QString, QVariant> tmap;
-        tmap.insert("name", theme.name);
-        tmap.insert("path", theme.path);
-        ui->cmbColorScheme->addItem(theme.name, tmap);
+        ui->cmbColorScheme->addItem(theme.name, theme.name); // First is display text, second is item data.
 
         if (themeSetting == theme.name) {
             ui->cmbColorScheme->setCurrentIndex(ui->cmbColorScheme->count() - 1);
@@ -166,11 +243,50 @@ void frmPreferences::loadColorSchemes(QSettings *s)
     }
 
     ui->colorSchemePreviewFrame->layout()->addWidget(m_previewEditor);
-    m_previewEditor->setTheme(Editor::themeFromName(themeSetting));
 
     // Avoid glitch where scrollbars are appearing for a moment
     QSize renderSize = ui->colorSchemePreviewFrame->size();
     m_previewEditor->forceRender(renderSize);
+
+
+    QString fontFamily = s->value("Appearance/OverrideFontFamily").toString();
+    if (!fontFamily.isEmpty()) {
+        ui->chkOverrideFontFamily->setChecked(true);
+        ui->cmbFontFamilies->setCurrentFont(fontFamily);
+    }
+
+    int fontSize = s->value("Appearance/OverrideFontSize").toInt();
+    if (fontSize != 0) {
+        ui->chkOverrideFontSize->setChecked(true);
+        ui->spnFontSize->setValue(fontSize);
+    }
+}
+
+void frmPreferences::loadTranslations(QSettings *s)
+{
+    QList<QString> translations = Notepadqq::translations();
+
+    QString localizationSetting = s->value("Localization", "en").toString();
+
+    for (QString langCode : translations) {
+        QString langName = QLocale::languageToString(QLocale(langCode).language());
+
+        QMap<QString, QVariant> tmap;
+        tmap.insert("langName", langName);
+        tmap.insert("langCode", langCode);
+
+        ui->localizationComboBox->addItem(langName, tmap);
+    }
+
+    QSortFilterProxyModel* proxy = new QSortFilterProxyModel(ui->localizationComboBox);
+    proxy->setSourceModel(ui->localizationComboBox->model());
+    ui->localizationComboBox->model()->setParent(proxy);
+    ui->localizationComboBox->setModel(proxy);
+    ui->localizationComboBox->model()->sort(0);
+
+    ui->localizationComboBox->setCurrentIndex(
+                ui->localizationComboBox->findData(
+                    QLocale::languageToString(QLocale(localizationSetting).language()), Qt::DisplayRole));
 }
 
 void frmPreferences::saveLanguages(QSettings *s)
@@ -195,10 +311,20 @@ void frmPreferences::saveLanguages(QSettings *s)
     }
 }
 
-void frmPreferences::saveColorScheme(QSettings *s)
+void frmPreferences::saveAppearanceTab(QSettings *s)
 {
-    QMap<QString, QVariant> selected = ui->cmbColorScheme->currentData().toMap();
-    s->setValue("Appearance/ColorScheme", selected.value("name").toString());
+    s->setValue("Appearance/ColorScheme", ui->cmbColorScheme->currentData().toString());
+
+    QString fontFamily = ui->cmbFontFamilies->isEnabled() ? ui->cmbFontFamilies->currentFont().family() : "";
+    int fontSize = ui->spnFontSize->isEnabled() ? ui->spnFontSize->value() : 0;
+    s->setValue("Appearance/OverrideFontFamily", fontFamily);
+    s->setValue("Appearance/OverrideFontSize", fontSize);
+}
+
+void frmPreferences::saveTranslation(QSettings *s)
+{
+    QMap<QString, QVariant> selected = ui->localizationComboBox->currentData().toMap();
+    s->setValue("Localization", selected.value("langCode").toString());
 }
 
 void frmPreferences::on_buttonBox_rejected()
@@ -273,9 +399,17 @@ void frmPreferences::on_chkLanguages_IndentWithSpaces_toggled(bool checked)
 
 void frmPreferences::on_cmbColorScheme_currentIndexChanged(int /*index*/)
 {
-    QMap<QString, QVariant> selected = ui->cmbColorScheme->currentData().toMap();
-    QString name = selected.value("name").toString();
-    m_previewEditor->setTheme(Editor::themeFromName(name));
+    m_previewEditor->setTheme(Editor::themeFromName(ui->cmbColorScheme->currentData().toString()));
+}
+
+void frmPreferences::on_localizationComboBox_activated(int /*index*/)
+{
+    QMessageBox msgBox;
+    msgBox.setWindowTitle(QCoreApplication::applicationName());
+    msgBox.setIcon(QMessageBox::Information);
+    msgBox.setText("<h3>" + QObject::tr("Restart required") + "</h3>");
+    msgBox.setInformativeText(QObject::tr("You need to restart Notepadqq for the localization changes to take effect."));
+    msgBox.exec();
 }
 
 bool frmPreferences::extensionBrowseRuntime(QLineEdit *lineEdit)
@@ -318,4 +452,26 @@ void frmPreferences::on_txtNodejs_textChanged(const QString &)
 void frmPreferences::on_txtNpm_textChanged(const QString &)
 {
     checkExecutableExists(ui->txtNpm);
+}
+
+void frmPreferences::on_chkOverrideFontFamily_toggled(bool checked)
+{
+    ui->cmbFontFamilies->setEnabled(checked);
+    updatePreviewEditorFont();
+}
+
+void frmPreferences::on_chkOverrideFontSize_toggled(bool checked)
+{
+    ui->spnFontSize->setEnabled(checked);
+    updatePreviewEditorFont();
+}
+
+void frmPreferences::on_spnFontSize_valueChanged(int /*arg1*/)
+{
+    updatePreviewEditorFont();
+}
+
+void frmPreferences::on_cmbFontFamilies_currentFontChanged(const QFont& /*f*/)
+{
+    updatePreviewEditorFont();
 }

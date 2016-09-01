@@ -63,6 +63,9 @@ public:
     QSharedPointer<Editor> currentEditorSharedPtr();
     QAction*  addExtensionMenuItem(QString extensionId, QString text);
     void showExtensionsMenu(bool show);
+    void updateShortcuts();
+    QList<QAction*> getActions();
+    QString getDefaultShortcut(QString actionName);
 
 protected:
     void closeEvent(QCloseEvent *event);
@@ -138,7 +141,7 @@ private slots:
     void on_actionInterpret_as_UTF_8_without_BOM_triggered();
     void on_actionInterpret_as_UTF_16BE_UCS_2_Big_Endian_triggered();
     void on_actionInterpret_as_UTF_16LE_UCS_2_Little_Endian_triggered();
-    void on_actionShow_Tabs_toggled(bool on);
+    void on_actionShow_Tabs_triggered(bool on);
     void on_actionConvert_to_triggered();
     void on_actionIndentation_Default_settings_triggered();
     void on_actionIndentation_Custom_triggered();
@@ -161,6 +164,8 @@ private slots:
     void on_actionFind_in_Files_triggered();
     void on_actionDelete_Line_triggered();
     void on_actionDuplicate_Line_triggered();
+    void on_actionMove_Line_Up_triggered();
+    void on_actionMove_Line_Down_triggered();
     void on_fileSearchResultFinished(FileSearchResult::SearchResult result);
     void on_resultMatchClicked(const FileSearchResult::FileResult &file, const FileSearchResult::Result &match);
     void on_actionTrim_Trailing_Space_triggered();
@@ -173,6 +178,10 @@ private slots:
     void on_editorUrlsDropped(QList<QUrl> urls);
     void on_actionGo_to_line_triggered();
     void on_actionInstall_Extension_triggered();
+    void on_actionFull_Screen_toggled(bool on);
+    void on_actionShow_End_of_Line_triggered(bool on);
+    void on_actionShow_All_Characters_toggled(bool on);
+    void on_actionShow_Spaces_triggered(bool on);
 
 private:
     static QList<MainWindow*> m_instances;
@@ -194,7 +203,9 @@ private:
     FileSearchResultsWidget* m_fileSearchResultsWidget;
     QString               m_workingDirectory;
     QMap<QSharedPointer<Extensions::Extension>, QMenu*> m_extensionMenus;
+    QMap<QString,QString>* m_defaultShortcuts;
 
+    void                defaultShortcuts();
     void                removeTabWidgetIfEmpty(EditorTabWidget *tabWidget);
     void                createStatusBar();
     int                 askIfWantToSave(EditorTabWidget *tabWidget, int tab, int reason);
@@ -248,6 +259,19 @@ private:
     void                fixKeyboardShortcuts();
     void                instantiateFrmSearchReplace();
     QUrl                stringToUrl(QString fileName, QString workingDirectory = QString());
+
+    /**
+     * @brief Initialize UI from settings
+     */
+    void initUI();
+
+    /**
+     * @brief Update symbol options using parameter `on` and Show_All_Characters toggle status.
+     * @param on  `true` or `false` based on the calling element's toggle status.
+     * @return bool: `true` if `on` is `false` and Show_All_Characters is checked. False otherwise.
+     *               On a `true` return, default symbol saving behavior is modified.
+     */
+    bool updateSymbols(bool on);
 };
 
 #endif // MAINWINDOW_H

@@ -186,12 +186,19 @@ UiDriver.registerEventHandler("C_CMD_SET_LINE_WRAP", function(msg, data, prevRet
     editor.setOption("lineWrapping", data == true);
 });
 
+UiDriver.registerEventHandler("C_CMD_SHOW_END_OF_LINE", function(msg, data, prevReturn) {
+    editor.setOption("showEOL", !!data);
+    editor.refresh();
+});
+
+UiDriver.registerEventHandler("C_CMD_SHOW_WHITESPACE", function(msg, data, prevReturn) {
+    editor.setOption("showWhitespace", !!data);
+    editor.refresh();
+});
+
 UiDriver.registerEventHandler("C_CMD_SET_TABS_VISIBLE", function(msg, data, prevReturn) {
-    if (data) {
-        $(".editor").addClass("show-tabs");
-    } else {
-        $(".editor").removeClass("show-tabs");
-    }
+    editor.setOption("showTab", !!data);
+    editor.refresh();
 });
 
 /* Search with a specified regex. Automatically select the text when found.
@@ -251,6 +258,48 @@ UiDriver.registerEventHandler("C_FUN_SEARCH", function(msg, data, prevReturn) {
     return Search(data[0], data[1], data[2]);
 });
 
+/*
+   Determine whether the proposed replacement contains
+   group reuse tokens i.e. \1, \2, etc.
+   (Helper function for search/replace & replace all.)
+ */
+function hasGroupReuseTokens(replacement){
+    var groupReuseRegex = /\\([1-9])/g;
+    return (groupReuseRegex.exec(replacement) !== null);
+}
+/*
+   Substitute group reuse tokens (i.e. \1, \2, etc.) with 
+   the matched groups provided.
+   (Helper function for search/replace & replace all.)
+   groups: contains array of regexp matches, where the first 
+   entry is the whole match and the rest are groups.
+   
+*/
+function applyReusedGroups(replacement, groups){
+    //If we got match subgroups, see if we need to alter the replacement
+    for (var iReuseGroup = 1; iReuseGroup < groups.length; iReuseGroup ++){
+        //takes care of non-consecutive group reuse tokens,
+        //i.e. in "\1 \3" with no "\2", the "\3" is ignored 
+        groupToReuse = groups[iReuseGroup];
+        replacement = replacement.replace(new RegExp("\\\\"+iReuseGroup), groupToReuse);
+    }
+    var groupReuseRegex = /\\([1-9])/g;
+    //take care of all non-matched group reuse tokens (replace with empty string)
+    //this is the Notepad++ functionality
+    replacement = replacement.replace(groupReuseRegex,"");
+    return replacement;
+}
+
+/*
+   Must match the definition of enum class SearchMode
+   in src/ui/include/Search/searchhelpers.h
+*/
+SearchMode = {
+    PlainText:1,
+    SpecialChars:2,
+    Regex:3
+}
+
 /* Replace the currently selected text, then search with a specified regex (calls C_FUN_SEARCH)
 
    The return value indicates whether a match was found.
@@ -263,30 +312,48 @@ UiDriver.registerEventHandler("C_FUN_SEARCH", function(msg, data, prevReturn) {
    data[3]: string to use as replacement
 */
 UiDriver.registerEventHandler("C_FUN_REPLACE", function(msg, data, prevReturn) {
+    var regexStr = data[0];
+    var regexModifiers = data[1];
+    var forward = data[2];
+    var searchMode = Number(data[4]);
     if (editor.somethingSelected()) {
+        var replacement = data[3];
         // Replace
-        editor.replaceSelection(data[3]);
+        if (searchMode == SearchMode.Regex && hasGroupReuseTokens(replacement)) {
+            var searchRegex = new RegExp(regexStr, regexModifiers);
+            groups = searchRegex.exec(editor.getSelection())
+            if (groups !== null) { //groups === null should never occur!
+                editor.replaceSelection(applyReusedGroups(replacement,groups));
+            }
+        } else {
+            editor.replaceSelection(replacement);
+        }
     }
 
     // Find next/prev
-    return Search(data[0], data[1], data[2]);
+    return Search(regexStr, regexModifiers, forward);
 });
 
 UiDriver.registerEventHandler("C_FUN_REPLACE_ALL", function(msg, data, prevReturn) {
     var regexStr = data[0];
     var regexModifiers = data[1];
     var replacement = data[2];
-
+    var searchMode = Number(data[3]);
     var searchCursor = editor.getSearchCursor(new RegExp(regexStr, regexModifiers), undefined, false);
 
     var count = 0;
     var id = Math.round(Math.random() * 1000000) + "/" + Date.now();
+    
+    var hasReuseTokens = hasGroupReuseTokens(replacement) && searchMode == SearchMode.Regex;
 
-    while (searchCursor.findNext()) {
+    while (groups = searchCursor.findNext()) {
         count++;
-
         // Replace
-        searchCursor.replace(replacement, "*C_FUN_REPLACE_ALL" + id);
+        if (hasReuseTokens){
+            searchCursor.replace(applyReusedGroups(replacement, groups), "*C_FUN_REPLACE_ALL" + id);
+        } else {
+            searchCursor.replace(replacement, "*C_FUN_REPLACE_ALL" + id);
+        }        
     }
 
     return count;
@@ -328,6 +395,22 @@ UiDriver.registerEventHandler("C_CMD_SET_THEME", function(msg, data, prevReturn)
     }
 
     editor.setOption("theme", data.name);
+});
+
+UiDriver.registerEventHandler("C_CMD_SET_FONT", function (msg, data, prevReturn) {
+    var fontSize = (data.size != "" && data.size > 0) ? ("font-size:" + (+data.size) + "px;") : "";
+    var fontFamily = data.family ? ("font-family:'" + ('' + data.family).replace("'", "\\'") + "';") : "";
+
+    var styleTag = document.getElementById('userFont');
+
+    if (styleTag) {
+        styleTag.innerHTML = "div.editor > .CodeMirror { " + fontFamily + fontSize + " }";
+    } else {
+        styleTag = document.createElement("style");
+        styleTag.id = 'userFont';
+        styleTag.innerHTML = "div.editor > .CodeMirror { " + fontFamily + fontSize + " }";
+        document.getElementsByTagName("head")[0].appendChild(styleTag);
+    }
 });
 
 UiDriver.registerEventHandler("C_CMD_SET_OVERWRITE", function(msg, data, prevReturn) {
@@ -398,6 +481,42 @@ UiDriver.registerEventHandler("C_CMD_DUPLICATE_LINE", function(msg, data, prevRe
     editor.replaceRange('\n' + line, pos);
 });
 
+UiDriver.registerEventHandler("C_CMD_MOVE_LINE_UP", function(msg, data, prevReturn) {
+    
+    var cur = editor.getCursor();
+    
+    //check previous line is not beginning of the document
+    if( (cur.line - 1) < 0) {
+        return;
+    }
+    
+    var line = editor.getLine(cur.line) + '\n' + editor.getLine(cur.line-1);
+    var from = { line: cur.line - 1, ch: 0           };
+    var to   = { line: cur.line,     ch: line.length };
+    
+    editor.replaceRange(line, from, to);
+    editor.setCursor(cur.line - 1, cur.ch );
+});
+
+UiDriver.registerEventHandler("C_CMD_MOVE_LINE_DOWN", function(msg, data, prevReturn) {
+    
+    var cur = editor.getCursor();
+    
+    // check that next line is not past end of document
+    if( (cur.line + 1) == editor.lineCount() )  {
+        return;
+    }
+    
+    var line = editor.getLine(cur.line + 1) + '\n' + editor.getLine(cur.line);
+    var from = { line: cur.line,     ch: 0           };
+    var to   = { line: cur.line + 1, ch: line.length };
+    
+    editor.replaceRange(line, from, to);
+    editor.setCursor(cur.line + 1, cur.ch );
+    
+});
+
+
 UiDriver.registerEventHandler("C_CMD_DELETE_LINE", function(msg, data, prevReturn) {
     editor.execCommand("deleteLine");
     editor.changeGeneration(true);
@@ -416,7 +535,17 @@ UiDriver.registerEventHandler("C_CMD_TRIM_LEADING_SPACE", function(msg, data, pr
 });
 
 UiDriver.registerEventHandler("C_CMD_TAB_TO_SPACE", function(msg, data, prevReturn) {
-    editLines(function (x) { return x.replace(/\t/g, " "); });
+    editLines(function (x) {
+        return x.replace(/\t/g, (function(tabSize) {
+            var result = "";
+            for (var i = 0; i< tabSize; i++) {
+                result += " ";
+            }
+            return result;
+        })(
+            editor.getOption("tabSize")
+        ));
+    });
 });
 
 UiDriver.registerEventHandler("C_CMD_SPACE_TO_TAB_ALL", function(msg, data, prevReturn) {

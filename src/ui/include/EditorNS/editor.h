@@ -211,6 +211,8 @@ namespace EditorNS
         Q_INVOKABLE void setSelectionsText(const QStringList &texts);
         Q_INVOKABLE QString language();
         Q_INVOKABLE void setLineWrap(const bool wrap);
+        Q_INVOKABLE void setEOLVisible(const bool showeol);
+        Q_INVOKABLE void setWhitespaceVisible(const bool showspace);
 
         /**
          * @brief Get the current cursor position
@@ -230,6 +232,14 @@ namespace EditorNS
         void setScrollPosition(const QPair<int, int> &position);
         QString endOfLineSequence() const;
         void setEndOfLineSequence(const QString &endOfLineSequence);
+
+        /**
+         * @brief Applies a font family/size to the Editor.
+         * @param fontFamily the family to be applied. An empty string or
+         *                   nullptr denote no override.
+         * @param fontSize the size to be applied. 0 denotes no override.
+         */
+        void setFont(QString fontFamily, int fontSize);
 
         QTextCodec *codec() const;
 

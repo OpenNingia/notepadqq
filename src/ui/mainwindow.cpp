@@ -60,6 +60,8 @@ MainWindow::MainWindow(const QString &workingDirectory, const QStringList &argum
     m_tabContextMenu = new QMenu(this);
     QAction *separator = new QAction(this);
     separator->setSeparator(true);
+    QAction *separatorBottom = new QAction(this);
+    separatorBottom->setSeparator(true);
     m_tabContextMenuActions.append(ui->actionClose);
     m_tabContextMenuActions.append(ui->actionClose_All_BUT_Current_Document);
     m_tabContextMenuActions.append(ui->actionSave);
@@ -67,6 +69,10 @@ MainWindow::MainWindow(const QString &workingDirectory, const QStringList &argum
     m_tabContextMenuActions.append(ui->actionRename);
     m_tabContextMenuActions.append(ui->actionPrint);
     m_tabContextMenuActions.append(separator);
+    m_tabContextMenuActions.append(ui->actionCurrent_Full_File_path_to_Clipboard);
+    m_tabContextMenuActions.append(ui->actionCurrent_Filename_to_Clipboard);
+    m_tabContextMenuActions.append(ui->actionCurrent_Directory_Path_to_Clipboard);
+    m_tabContextMenuActions.append(separatorBottom);
     m_tabContextMenuActions.append(ui->actionMove_to_Other_View);
     m_tabContextMenuActions.append(ui->actionClone_to_Other_View);
     m_tabContextMenuActions.append(ui->actionMove_to_New_Window);
@@ -74,7 +80,6 @@ MainWindow::MainWindow(const QString &workingDirectory, const QStringList &argum
     m_tabContextMenu->addActions(m_tabContextMenuActions);
 
     fixKeyboardShortcuts();
-
     // Set popup for action_Open in toolbar
     QToolButton *btnActionOpen = static_cast<QToolButton *>(ui->mainToolBar->widgetForAction(ui->action_Open));
     btnActionOpen->setMenu(ui->menuRecent_Files);
@@ -120,8 +125,7 @@ MainWindow::MainWindow(const QString &workingDirectory, const QStringList &argum
             this, &MainWindow::on_resultMatchClicked);
 
     // Initialize UI from settings
-    ui->actionWord_wrap->setChecked(m_settings->value("wordWrap", false).toBool());
-    ui->actionShow_Tabs->setChecked(m_settings->value("tabsVisible", false).toBool());
+    initUI();
 
     // Inserts at least an editor
     openCommandLineProvidedUrls(workingDirectory, arguments);
@@ -135,6 +139,8 @@ MainWindow::MainWindow(const QString &workingDirectory, const QStringList &argum
     }
 
     restoreWindowSettings();
+
+    ui->actionFull_Screen->setChecked(isFullScreen());
 
     ui->dockFileSearchResults->hide();
 
@@ -151,7 +157,8 @@ MainWindow::MainWindow(const QString &workingDirectory, const QStringList &argum
 
     // DEBUG: Add a second tabWidget
     //this->topEditorContainer->addTabWidget()->addEditorTab(false, "test");
-
+    defaultShortcuts();
+    updateShortcuts();
     emit Notepadqq::getInstance().newWindow(this);
 }
 
@@ -184,6 +191,17 @@ MainWindow *MainWindow::lastActiveInstance()
 TopEditorContainer *MainWindow::topEditorContainer()
 {
     return m_topEditorContainer;
+}
+
+void MainWindow::initUI()
+{
+    bool showAll = m_settings->value("showAllSymbols", false).toBool();
+    ui->actionWord_wrap->setChecked(m_settings->value("wordWrap", false).toBool());
+
+    // Simply emitting a signal here initializes actionShow_Tab and
+    // actionShow_End_of_Line, due to how action_Show_All_Characters works.
+    ui->actionShow_All_Characters->setChecked(showAll);
+    emit on_actionShow_All_Characters_toggled(showAll);
 }
 
 void MainWindow::restoreWindowSettings()
@@ -325,6 +343,61 @@ void MainWindow::createStatusBar()
 
     status->addWidget(scrollArea, 1);
     scrollArea->setFixedHeight(frame->height());
+}
+
+//Store the default shortcuts on startup
+void MainWindow::defaultShortcuts()
+{
+    m_defaultShortcuts = new QMap<QString,QString>();
+    foreach(QAction* a, getActions()) {
+        if(!a->objectName().isEmpty()) m_defaultShortcuts->insert(a->objectName(),a->shortcut().toString());
+    }
+}
+
+QString MainWindow::getDefaultShortcut(QString actionName)
+{
+    return m_defaultShortcuts->value(actionName);
+}
+
+void MainWindow::updateShortcuts()
+{
+    QList<QMenu*> lst;
+    QString action;
+    QString shortcut;
+    lst = ui->menuBar->findChildren<QMenu*>();
+    m_settings->beginGroup("Shortcuts");
+    foreach (QAction* a, getActions())
+    {
+        action = a->objectName();
+        if(m_settings->contains(action)){
+            shortcut = m_settings->value(action).toString();
+            a->setShortcut(shortcut);
+
+            //Initialize settings built into the editor by default
+        }else if(!a->shortcut().isEmpty()) {
+            m_settings->setValue(action,a->shortcut().toString());
+        }
+    }
+    m_settings->endGroup();
+}
+
+//Return a list of all available action items in the menu
+QList<QAction*> MainWindow::getActions()
+{
+    QList<QMenu*> lst;
+    QList<QAction*> lactions;
+    QString action;
+    lst = ui->menuBar->findChildren<QMenu*>();
+
+    foreach (QMenu* m, lst)
+    {
+        if(m->title().compare("&Language")==0) continue;
+        foreach (QAction* a, m->actions())
+        {
+            lactions.append(a);
+        }
+    }
+    return lactions;
 }
 
 void MainWindow::setupLanguagesMenu()
@@ -471,7 +544,29 @@ void MainWindow::on_editorUrlsDropped(QList<QUrl> urls)
 void MainWindow::keyPressEvent(QKeyEvent *ev)
 {
     if (ev->key() == Qt::Key_Insert) {
-        toggleOverwrite();
+        if (QApplication::keyboardModifiers().testFlag(Qt::ShiftModifier)) {
+            on_action_Paste_triggered();
+        } else if (QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)) {
+            on_action_Copy_triggered();
+        } else {
+            toggleOverwrite();
+        }
+    } else if (ev->key() >= Qt::Key_1 && ev->key() <= Qt::Key_9
+               && QApplication::keyboardModifiers().testFlag(Qt::AltModifier)) {
+        m_topEditorContainer->currentTabWidget()->setCurrentIndex(ev->key() - Qt::Key_1);
+    } else if (QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)
+               && ev->key() == Qt::Key_PageDown) {
+        // switch to the next tab to the right or wrap around if last
+        EditorTabWidget *curTabWidget = m_topEditorContainer->currentTabWidget();
+        int nextTabIndex = (curTabWidget->currentIndex() + 1) % curTabWidget->count();
+        curTabWidget->setCurrentIndex(nextTabIndex);
+    } else if (QApplication::keyboardModifiers().testFlag(Qt::ControlModifier)
+               && ev->key() == Qt::Key_PageUp) {
+        // switch to the previous tab or wrap around if first
+        EditorTabWidget *curTabWidget = m_topEditorContainer->currentTabWidget();
+        int prevTabIndex = (curTabWidget->currentIndex() + curTabWidget->count() - 1)
+                            % curTabWidget->count();
+        curTabWidget->setCurrentIndex(prevTabIndex);
     } else {
         QMainWindow::keyPressEvent(ev);
     }
@@ -536,6 +631,98 @@ void MainWindow::on_customTabContextMenuRequested(QPoint point, EditorTabWidget 
     m_tabContextMenu->exec(point);
 }
 
+bool MainWindow::updateSymbols(bool on)
+{
+    // Save the currently toggled symbols when deactivating Show_All_Characters using
+    // one of the other available symbol actions.
+    if (!on && ui->actionShow_All_Characters->isChecked()) {
+        m_settings->setValue("tabsVisible", ui->actionShow_Tabs->isChecked());
+        m_settings->setValue("spacesVisible", ui->actionShow_Spaces->isChecked());
+        m_settings->setValue("showEOL", ui->actionShow_End_of_Line->isChecked());
+        ui->actionShow_All_Characters->blockSignals(true);
+        ui->actionShow_All_Characters->setChecked(false);
+        ui->actionShow_All_Characters->blockSignals(false);
+        m_settings->setValue("showAllSymbols", false);
+        return true;
+
+    } else if (on && !ui->actionShow_All_Characters->isChecked()) {
+        bool showEOL = ui->actionShow_End_of_Line->isChecked();
+        bool showTabs = ui->actionShow_Tabs->isChecked();
+        bool showSpaces = ui->actionShow_Spaces->isChecked();
+        if (showEOL && showTabs && showSpaces) {
+            ui->actionShow_All_Characters->setChecked(true);
+        }
+    }
+
+    return false;
+}
+
+void MainWindow::on_actionShow_Tabs_triggered(bool on)
+{
+    m_topEditorContainer->forEachEditor([&](const int /*tabWidgetId*/, const int /*editorId*/, EditorTabWidget */*tabWidget*/, Editor *editor) {
+        editor->setTabsVisible(on);
+        return true;
+    });
+    if (!updateSymbols(on)) {
+        m_settings->setValue("tabsVisible", on);
+    }
+}
+
+void MainWindow::on_actionShow_Spaces_triggered(bool on)
+{
+    m_topEditorContainer->forEachEditor([&](const int /*tabWidgetId*/, const int /*editorId*/, EditorTabWidget */*tabWidget*/, Editor *editor) {
+        editor->setWhitespaceVisible(on);
+        return true;
+    });
+    if (!updateSymbols(on)) {
+        m_settings->setValue("spacesVisible", on);
+    }
+}
+
+void MainWindow::on_actionShow_End_of_Line_triggered(bool on)
+{
+    m_topEditorContainer->forEachEditor([&](const int /*tabWidgetId*/, const int /*editorId*/, EditorTabWidget */*tabWidget*/, Editor *editor) {
+        editor->setEOLVisible(on);
+        return true;
+    });
+    if (!updateSymbols(on)) {
+        m_settings->setValue("showEOL", on);
+    }
+}
+
+void MainWindow::on_actionShow_All_Characters_toggled(bool on)
+{
+    if (on) {
+        ui->actionShow_End_of_Line->setChecked(true);
+        ui->actionShow_Tabs->setChecked(true);
+        ui->actionShow_Spaces->setChecked(true);
+
+    } else {
+        bool showEOL = m_settings->value("showEOL", false).toBool();
+        bool showTabs = m_settings->value("tabsVisible", false).toBool();
+        bool showSpaces = m_settings->value("spacesVisible", false).toBool();
+
+        if (showEOL && showTabs && showSpaces) {
+            showEOL = !showEOL;
+            showTabs = !showTabs;
+            showSpaces = !showSpaces;
+        }
+
+        ui->actionShow_End_of_Line->setChecked(showEOL);
+        ui->actionShow_Tabs->setChecked(showTabs);
+        ui->actionShow_Spaces->setChecked(showSpaces);
+    }
+
+    m_topEditorContainer->forEachEditor([&](const int /*tabWidgetId*/, const int /*editorId*/, EditorTabWidget */*tabWidget*/, Editor *editor) {
+        editor->setEOLVisible(ui->actionShow_End_of_Line->isChecked());
+        editor->setTabsVisible(ui->actionShow_Tabs->isChecked());
+        editor->setWhitespaceVisible(on);
+        return true;
+    });
+
+    m_settings->setValue("showAllSymbols", on);
+}
+
 bool MainWindow::reloadWithWarning(EditorTabWidget *tabWidget, int tab, QTextCodec *codec, bool bom)
 {
     if (!tabWidget->editor(tab)->isClean()) {
@@ -565,16 +752,25 @@ void MainWindow::on_actionMove_to_Other_View_triggered()
     EditorTabWidget *curTabWidget = m_topEditorContainer->currentTabWidget();
     EditorTabWidget *destTabWidget;
 
-    if(m_topEditorContainer->count() >= 2) {
-        int viewId = 1;
-        if(m_topEditorContainer->widget(1) == curTabWidget) {
-            viewId = 0;
-        }
+    const int currentViewCount = m_topEditorContainer->count();
 
+    if(currentViewCount >= 2) {
+        //Two view panes are open. Pick the one not currently active.
+        int viewId = m_topEditorContainer->widget(1)==curTabWidget ? 0 : 1;
         destTabWidget = m_topEditorContainer->tabWidget(viewId);
 
     } else {
+        //Only one view pane is open. Add another one
         destTabWidget = m_topEditorContainer->addTabWidget();
+
+        //And resize both panes to be equally big.
+        int tabSize = m_topEditorContainer->contentsRect().width() / currentViewCount;
+
+        QList<int> sizes;
+        sizes << tabSize;
+        sizes << tabSize;
+
+        m_topEditorContainer->setSizes( sizes );
     }
 
     destTabWidget->transferEditorTab(true, curTabWidget, curTabWidget->currentIndex());
@@ -918,7 +1114,11 @@ void MainWindow::on_editorAdded(EditorTabWidget *tabWidget, int tab)
     // Initialize editor with UI settings
     editor->setLineWrap(ui->actionWord_wrap->isChecked());
     editor->setTabsVisible(ui->actionShow_Tabs->isChecked());
+    editor->setEOLVisible(ui->actionShow_End_of_Line->isChecked());
+    editor->setWhitespaceVisible(ui->actionShow_Spaces->isChecked());
     editor->setOverwrite(m_overwrite);
+    editor->setFont(m_settings->value("Appearance/OverrideFontFamily", "").toString(),
+                    m_settings->value("Appearance/OverrideFontSize", 0).toInt());
 }
 
 void MainWindow::on_cursorActivity()
@@ -1208,7 +1408,6 @@ void MainWindow::on_actionPreferences_triggered()
     frmPreferences *_pref;
     _pref = new frmPreferences(m_topEditorContainer, this);
     _pref->exec();
-
     _pref->deleteLater();
 }
 
@@ -1682,15 +1881,6 @@ void MainWindow::on_actionInterpret_as_UTF_16LE_UCS_2_Little_Endian_triggered()
     m_docEngine->reinterpretEncoding(currentEditor(), QTextCodec::codecForName("UTF-16LE"), true);
 }
 
-void MainWindow::on_actionShow_Tabs_toggled(bool on)
-{
-    m_topEditorContainer->forEachEditor([&](const int /*tabWidgetId*/, const int /*editorId*/, EditorTabWidget */*tabWidget*/, Editor *editor) {
-        editor->setTabsVisible(on);
-        return true;
-    });
-    m_settings->setValue("tabsVisible", on);
-}
-
 void MainWindow::on_actionConvert_to_triggered()
 {
     Editor *editor = currentEditor();
@@ -1943,6 +2133,17 @@ void MainWindow::on_actionDuplicate_Line_triggered()
     currentEditor()->sendMessage("C_CMD_DUPLICATE_LINE");
 }
 
+void MainWindow::on_actionMove_Line_Up_triggered()
+{
+    currentEditor()->sendMessage("C_CMD_MOVE_LINE_UP");
+}
+
+void MainWindow::on_actionMove_Line_Down_triggered()
+{
+    //currentEditor()->sendMessage("C_CMD_MOVE_LINE_DOWN");
+    currentEditor()->sendMessage("C_CMD_MOVE_LINE_DOWN");
+}
+
 void MainWindow::on_resultMatchClicked(const FileSearchResult::FileResult &file, const FileSearchResult::Result &match)
 {
     QUrl url = stringToUrl(file.fileName);
@@ -2022,4 +2223,20 @@ void MainWindow::on_actionInstall_Extension_triggered()
 void MainWindow::showExtensionsMenu(bool show)
 {
     ui->menuExtensions->menuAction()->setVisible(show);
+}
+
+void MainWindow::on_actionFull_Screen_toggled(bool on)
+{
+    static bool maximized = isMaximized();
+
+    if (on) {
+        maximized = isMaximized();
+        showFullScreen();
+    } else {
+        if (maximized) {
+            showMaximized();
+        } else {
+            showNormal();
+        }
+    }
 }
